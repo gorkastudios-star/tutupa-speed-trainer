@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TUTUPA - Speed Trainer</title>
+    <!-- Tailwind CSS para diseño ágil y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons para una interfaz moderna -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #040405;
+            --panel-bg: rgba(18, 18, 20, 0.5);
+            --border-color: rgba(38, 38, 41, 0.4);
+            --red: #ef4444;
+            --orange: #f97316;
+            --green: #22c55e;
+            --gray: #27272a;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            overflow-x: hidden;
+        }
+
+        .circulo {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .circulo.mala.active {
+            background-color: var(--red);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), inset 0 2px 4px rgba(255,255,255,0.2);
+        }
+
+        .circulo.buena.active {
+            background-color: var(--green);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.6), inset 0 2px 4px rgba(255,255,255,0.2);
+        }
+
+        .mini-circulo {
+            transition: all 0.2s ease;
+        }
+
+        .mini-circulo.active {
+            background-color: var(--orange);
+            box-shadow: 0 0 12px rgba(249, 115, 22, 0.6);
+        }
+
+        /* Capa de destello ambiental de fondo (Glow completo de pantalla) */
+        #ambient-glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0;
+            will-change: opacity, background;
+        }
+    </style>
+</head>
+<body class="text-zinc-100 min-h-screen flex flex-col justify-between p-4 md:p-8 font-sans antialiased select-none relative">
+
+    <!-- Capa de Iluminación Ambiental (Baño de color de pantalla completa) -->
+    <div id="ambient-glow"></div>
+
+    <!-- Header / Barra superior -->
+    <header class="w-full max-w-4xl mx-auto flex justify-between items-center border-b border-zinc-800/40 pb-4 z-10">
+        <div class="flex items-center gap-2">
+            <div class="w-3.5 h-3.5 rounded-full bg-red-500/85 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]"></div>
+            <h1 class="text-sm md:text-base font-bold tracking-wider text-zinc-300">TUTUPA <span class="text-zinc-500 font-normal">| SPEED TRAINER</span></h1>
+        </div>
+        
+        <button onclick="reiniciarSesion()" class="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-zinc-900/60 border border-zinc-800/60 hover:bg-zinc-800 hover:border-zinc-700/80 transition backdrop-blur-sm">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reiniciar
+        </button>
+    </header>
+
+    <!-- Ajustes de Práctica (Alineación exacta de Malas -- Ambiguas -- Buenas) -->
+    <section class="w-full max-w-xl mx-auto mt-4 flex justify-between items-center px-4 py-2.5 bg-zinc-950/40 border border-zinc-800/30 rounded-xl text-[11px] text-zinc-400 backdrop-blur-sm z-10">
+        <!-- Control Vidas Malas -->
+        <div class="flex items-center gap-2">
+            <span class="text-zinc-500 uppercase tracking-wider font-semibold">Vidas Malas</span>
+            <div class="flex items-center gap-1">
+                <button onclick="ajustarLimite('malas', -1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">-</button>
+                <span id="display-malas" class="font-bold text-red-400 w-4 text-center">4</span>
+                <button onclick="ajustarLimite('malas', 1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">+</button>
+            </div>
+        </div>
+        
+        <div class="h-4 w-px bg-zinc-800/50"></div>
+        
+        <!-- Control Tolerancia Ambiguas -->
+        <div class="flex items-center gap-2">
+            <span class="text-zinc-500 uppercase tracking-wider font-semibold">Ambiguas</span>
+            <div class="flex items-center gap-1">
+                <button onclick="ajustarLimite('ambiguas', -1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">-</button>
+                <span id="display-ambiguas" class="font-bold text-orange-400 w-4 text-center">3</span>
+                <button onclick="ajustarLimite('ambiguas', 1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">+</button>
+            </div>
+        </div>
+        
+        <div class="h-4 w-px bg-zinc-800/50"></div>
+        
+        <!-- Control Meta de Buenas -->
+        <div class="flex items-center gap-2">
+            <span class="text-zinc-500 uppercase tracking-wider font-semibold">Meta Buenas</span>
+            <div class="flex items-center gap-1">
+                <button onclick="ajustarLimite('buenas', -1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">-</button>
+                <span id="display-buenas" class="font-bold text-emerald-400 w-4 text-center">4</span>
+                <button onclick="ajustarLimite('buenas', 1)" class="w-5 h-5 rounded bg-zinc-900/80 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-90 transition text-zinc-400 font-bold">+</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contenedor del Semáforo y Ejecución -->
+    <main class="w-full max-w-xl mx-auto my-auto flex flex-col gap-6 z-10">
+        
+        <!-- Panel de Estado / Feedback (Glassmorphism sutil para que el Glow traspase) -->
+        <div class="bg-zinc-900/40 border border-zinc-800/50 rounded-2xl p-6 md:p-8 text-center shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] backdrop-blur-md overflow-hidden relative">
+            
+            <div id="alertText" class="text-xs font-black tracking-widest text-zinc-500 uppercase h-6 transition-all duration-150 mb-6 flex items-center justify-center gap-2">
+                SISTEMA LISTO
+            </div>
+
+            <!-- Semáforo Dinámico Estilo F1 -->
+            <div class="flex justify-center items-center w-full overflow-hidden px-2 mb-8" id="semaforo">
+                <!-- Se genera dinámicamente con JS según los ajustes con auto-escalado -->
+            </div>
+
+            <!-- Información del Buffer y Ambiguas -->
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between border-t border-zinc-800/30 pt-6">
+                <!-- Buffer Malas Activo -->
+                <div class="flex items-center gap-2 text-xs text-zinc-500">
+                    <i data-lucide="shield" class="w-4 h-4 text-zinc-400"></i>
+                    <span>Tolerancia activa: <strong id="bufferText" class="text-zinc-300">4</strong></span>
+                </div>
+
+                <!-- Contador de Ambiguas Adaptativo -->
+                <div class="flex items-center gap-3">
+                    <span class="text-xs uppercase tracking-wider text-zinc-500">Ambiguas:</span>
+                    <div class="flex gap-2" id="ambiguasTrack">
+                        <!-- Se dibuja dinámicamente según las ambiguas -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botonera Operativa -->
+        <div class="grid grid-cols-3 gap-3 md:gap-4">
+            <button onclick="procesar('MALA')" class="group relative flex flex-col items-center justify-center py-5 px-3 rounded-xl bg-red-950/10 border border-red-900/20 hover:bg-red-950/30 hover:border-red-500/40 transition-all active:scale-[0.98] backdrop-blur-sm">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-500 mb-2 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                <span class="text-sm font-bold tracking-wide text-red-200">Incorrecto</span>
+                <span class="text-[10px] text-red-400/60 font-mono mt-1 bg-red-950/40 px-2 py-0.5 rounded border border-red-900/30 group-hover:border-red-500/20">Teclado A</span>
+            </button>
+
+            <button onclick="procesar('AMBIGUA')" class="group relative flex flex-col items-center justify-center py-5 px-3 rounded-xl bg-orange-950/10 border border-orange-900/20 hover:bg-orange-950/30 hover:border-orange-500/40 transition-all active:scale-[0.98] backdrop-blur-sm">
+                <div class="w-2.5 h-2.5 rounded-full bg-orange-500 mb-2 shadow-[0_0_10px_rgba(249,115,22,0.5)]"></div>
+                <span class="text-sm font-bold tracking-wide text-orange-200">Ambiguo</span>
+                <span class="text-[10px] text-orange-400/60 font-mono mt-1 bg-orange-950/40 px-2 py-0.5 rounded border border-orange-900/30 group-hover:border-orange-500/20">Teclado S</span>
+            </button>
+
+            <button onclick="procesar('BUENA')" class="group relative flex flex-col items-center justify-center py-5 px-3 rounded-xl bg-emerald-950/10 border border-emerald-900/20 hover:bg-emerald-950/30 hover:border-emerald-500/40 transition-all active:scale-[0.98] backdrop-blur-sm">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 mb-2 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                <span class="text-sm font-bold tracking-wide text-emerald-200">Correcto</span>
+                <span class="text-[10px] text-emerald-400/60 font-mono mt-1 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/30 group-hover:border-emerald-500/20">Teclado D</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Footer de Metas, Recomendaciones e Historial -->
+    <footer class="w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-zinc-800/40 pt-6 mt-6 z-10">
+        <!-- Métricas Rápidas -->
+        <div class="bg-zinc-950/30 border border-zinc-800/40 rounded-xl p-4 flex justify-around items-center backdrop-blur-sm">
+            <div class="text-center">
+                <span class="block text-[10px] text-zinc-500 uppercase tracking-wider">Buenas</span>
+                <strong id="statBuenas" class="text-lg text-emerald-400">0</strong>
+            </div>
+            <div class="h-6 w-px bg-zinc-800/50"></div>
+            <div class="text-center">
+                <span class="block text-[10px] text-zinc-500 uppercase tracking-wider">Malas Totales</span>
+                <strong id="statMalas" class="text-lg text-red-400">0</strong>
+            </div>
+            <div class="h-6 w-px bg-zinc-800/50"></div>
+            <div class="text-center">
+                <span class="block text-[10px] text-zinc-500 uppercase tracking-wider">Acciones</span>
+                <strong id="statTotal" class="text-lg text-zinc-300">0</strong>
+            </div>
+        </div>
+
+        <!-- Indicador de velocidad sugerida -->
+        <div class="bg-zinc-950/30 border border-zinc-800/40 rounded-xl p-4 flex flex-col justify-center items-center text-center backdrop-blur-sm">
+            <span class="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Recomendación Actual</span>
+            <div id="velocidadSugerida" class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                <i data-lucide="circle-dot" class="w-3.5 h-3.5 text-zinc-500"></i> Mantener ritmo estable
+            </div>
+        </div>
+
+        <!-- Registro de Actividad Breve -->
+        <div class="bg-zinc-950/30 border border-zinc-800/40 rounded-xl p-3 flex flex-col backdrop-blur-sm">
+            <span class="text-[9px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Historial Reciente</span>
+            <div id="historialLog" class="flex gap-1 overflow-hidden h-6 items-center">
+                <span class="text-[10px] text-zinc-600 italic">Sin actividad registrada</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal de Vuelta de Reconocimiento -->
+    <div id="reconModal" class="fixed inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-50 hidden transition-opacity duration-350">
+        <div class="bg-zinc-950 border-2 border-orange-500/20 rounded-2xl p-8 max-w-md w-full text-center shadow-[0_0_50px_rgba(249,115,22,0.15)] flex flex-col items-center">
+            
+            <!-- Icono Animado -->
+            <div class="w-16 h-16 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 mb-5">
+                <i data-lucide="music" class="w-8 h-8 animate-pulse"></i>
+            </div>
+            
+            <h2 class="text-xl font-black tracking-widest text-orange-500 uppercase mb-2">Vuelta de Reconocimiento</h2>
+            <div id="reconSubtTitle" class="text-xs font-bold text-zinc-400 mb-4 px-3 py-1 bg-zinc-900/80 rounded-full border border-zinc-800">
+                ¡EL TEMPO HA CAMBIADO!
+            </div>
+            
+            <p class="text-sm text-zinc-300 mb-6 leading-relaxed">
+                Suelta las baquetas físicas o el teclado. Haz <strong class="text-orange-400">Air Drumming</strong> siguiendo el nuevo pulso en tu cabeza para asimilar la velocidad de esta vuelta.
+            </p>
+
+            <!-- Barra de Progreso Visual de la Cuenta Atrás -->
+            <div class="w-full bg-zinc-900 rounded-full h-1.5 mb-6 overflow-hidden border border-zinc-800">
+                <div id="countdownProgress" class="bg-orange-500 h-1.5 w-full transition-all duration-1000 ease-linear"></div>
+            </div>
+
+            <!-- Botón y Atajo para Cerrar -->
+            <button onclick="cerrarReconModal()" id="reconButton" class="w-full py-3 px-4 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-bold tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20">
+                <i data-lucide="play" class="w-4 h-4"></i> Listo para tocar (<span id="countdownText">5</span>s)
+            </button>
+            
+            <span class="text-[10px] text-zinc-600 mt-3 font-mono">Presiona ESPACIO o ENTER para omitir</span>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar iconos de Lucide
+        lucide.createIcons();
+
+        // CONFIGURACIÓN DINÁMICA DE LOS LÍMITES (Por defecto: 4 malas, 3 ambiguas, 4 buenas)
+        const limits = {
+            buenas: { current: 4, min: 1, max: 15 },
+            ambiguas: { current: 3, min: 1, max: 8 },
+            malas: { current: 4, min: 1, max: 15 }
+        };
+
+        let buenas = 0;
+        let malas = 0;
+        let ambiguas = 0;
+        let limiteMalasActivo = 4; // Inicializado dinámicamente
+
+        let totalBuenasSesion = 0;
+        let totalMalasSesion = 0;
+        let totalAccionesSesion = 0;
+        let logActividad = [];
+
+        // Estado del Modal de Reconocimiento
+        let modalAbierto = false;
+        let countdownInterval = null;
+        let tiempoRestante = 5;
+
+        function actualizarUIValores() {
+            document.getElementById('display-buenas').innerText = limits.buenas.current;
+            document.getElementById('display-ambiguas').innerText = limits.ambiguas.current;
+            document.getElementById('display-malas').innerText = limits.malas.current;
+        }
+
+        function ajustarLimite(tipo, cambio) {
+            const config = limits[tipo];
+            const nuevoVal = config.current + cambio;
+            if (nuevoVal >= config.min && nuevoVal <= config.max) {
+                config.current = nuevoVal;
+                actualizarUIValores();
+                initDynamicLimits(); // Adaptar semáforo e historial al instante
+            }
+        }
+
+        function initDynamicLimits() {
+            limiteMalasActivo = limits.malas.current;
+            renderSemaforo();
+        }
+
+        function renderSemaforo() {
+            let html = '';
+            
+            // CÁLCULO DE ESCALADO ADAPTATIVO (Evita que rompa el recuadro que se ve en Captura de pantalla 2026-06-02 a las 17.50.35.png):
+            const totalCirculosSemaforo = limiteMalasActivo + limits.buenas.current;
+            
+            let classTamañoCirculo = 'w-6 h-6 md:w-8 md:h-8';
+            let classEspaciado = 'gap-1.5 md:gap-2';
+            
+            if (totalCirculosSemaforo > 18) {
+                classTamañoCirculo = 'w-3 h-3 md:w-4 md:h-4';
+                classEspaciado = 'gap-0.5 md:gap-1';
+            } else if (totalCirculosSemaforo > 14) {
+                classTamañoCirculo = 'w-4 h-4 md:w-5 md:h-5';
+                classEspaciado = 'gap-1 md:gap-1.2';
+            } else if (totalCirculosSemaforo > 10) {
+                classTamañoCirculo = 'w-5 h-5 md:w-6 md:h-6';
+                classEspaciado = 'gap-1 md:gap-1.5';
+            }
+
+            // Renderizar lado izquierdo (Malas) - Llenado de derecha a izquierda
+            html += `<div class="flex items-center ${classEspaciado} flex-shrink">`;
+            for (let i = limiteMalasActivo; i >= 1; i--) {
+                const isActive = malas >= i;
+                html += `<div class="circulo mala ${classTamañoCirculo} rounded-full bg-zinc-800 border border-zinc-700/30 flex-shrink-0 ${isActive ? 'active' : ''}"></div>`;
+            }
+            html += `</div>`;
+
+            // Centro divisor (Estilo F1)
+            html += `<div class="px-2 font-mono text-xs md:text-sm text-zinc-700 font-bold select-none flex-shrink-0">┠┨</div>`;
+
+            // Renderizar lado derecho (Buenas) - Llenado de izquierda a derecha (usando meta configurada)
+            const metaBuenas = limits.buenas.current;
+            html += `<div class="flex items-center ${classEspaciado} flex-shrink">`;
+            for (let i = 1; i <= metaBuenas; i++) {
+                const isActive = buenas >= i;
+                html += `<div class="circulo buena ${classTamañoCirculo} rounded-full bg-zinc-800 border border-zinc-700/30 flex-shrink-0 ${isActive ? 'active' : ''}"></div>`;
+            }
+            html += `</div>`;
+
+            document.getElementById('semaforo').innerHTML = html;
+
+            // Renderizar el contenedor de ambiguas dinámicamente
+            const limiteAmbiguas = limits.ambiguas.current;
+            let ambHtml = '';
+            for (let i = 1; i <= limiteAmbiguas; i++) {
+                const isActive = ambiguas >= i;
+                ambHtml += `<div class="mini-circulo w-4 h-4 rounded-full bg-zinc-800 border border-zinc-700/50 ${isActive ? 'active' : ''}"></div>`;
+            }
+            document.getElementById('ambiguasTrack').innerHTML = ambHtml;
+            
+            // Actualizar el valor numérico del colchón activo en pantalla
+            document.getElementById('bufferText').innerText = limiteMalasActivo;
+        }
+
+        // AMBIENT GLOW COMPLETO: ATAQUE ULTRA-RÁPIDO Y SUAVE DECAY DE 5 SEGUNDOS
+        function flashAmbiental(tipo) {
+            const glow = document.getElementById('ambient-glow');
+            
+            // Definición de espectros amplios y envolventes que cubren la pantalla completa (tinte ambiental del fondo negro)
+            let backgroundStyle = '';
+            if (tipo === 'green') {
+                backgroundStyle = 'radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, rgba(4, 47, 26, 0.25) 50%, rgba(4, 4, 5, 0.1) 100%), rgba(34, 197, 94, 0.05)';
+            } else if (tipo === 'red') {
+                backgroundStyle = 'radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, rgba(69, 10, 10, 0.25) 50%, rgba(4, 4, 5, 0.1) 100%), rgba(239, 68, 68, 0.05)';
+            } else if (tipo === 'orange') {
+                backgroundStyle = 'radial-gradient(circle, rgba(249, 115, 22, 0.35) 0%, rgba(67, 20, 7, 0.25) 50%, rgba(4, 4, 5, 0.1) 100%), rgba(249, 115, 22, 0.05)';
+            }
+
+            // Aplicar el gradiente + baño completo de color
+            glow.style.background = backgroundStyle;
+
+            // FASE DE ATAQUE: Súper rápido para respuesta táctil instantánea
+            glow.style.transition = 'opacity 0.03s cubic-bezier(0.1, 0.9, 0.2, 1)';
+            glow.style.opacity = '1';
+
+            // Forzar reflow
+            glow.offsetHeight;
+
+            // FASE DE FADE-OUT (RELEASE DE 5 SEGUNDOS):
+            setTimeout(() => {
+                // Decay largo de 5 segundos para un fundido analógico bellísimo
+                glow.style.transition = 'opacity 5.0s cubic-bezier(0.16, 1, 0.3, 1)';
+                glow.style.opacity = '0';
+            }, 60);
+        }
+
+        function actualizarStats(accion) {
+            totalAccionesSesion++;
+            if (accion === 'BUENA') totalBuenasSesion++;
+            if (accion === 'MALA') totalMalasSesion++;
+
+            document.getElementById('statBuenas').innerText = totalBuenasSesion;
+            document.getElementById('statMalas').innerText = totalMalasSesion;
+            document.getElementById('statTotal').innerText = totalAccionesSesion;
+
+            // Historial visual rápido de dots
+            let colorDot = 'bg-zinc-700';
+            if (accion === 'BUENA') colorDot = 'bg-emerald-500 animate-pulse';
+            if (accion === 'MALA') colorDot = 'bg-red-500 animate-pulse';
+            if (accion === 'AMBIGUA') colorDot = 'bg-orange-500 animate-pulse';
+
+            logActividad.unshift(colorDot);
+            if (logActividad.length > 10) logActividad.pop();
+
+            document.getElementById('historialLog').innerHTML = logActividad.map(dotClass => 
+                `<div class="w-2.5 h-2.5 rounded-full ${dotClass}"></div>`
+            ).join('');
+        }
+
+        function abrirVueltaReconocimiento(tipo) {
+            modalAbierto = true;
+            tiempoRestante = 5;
+            
+            const subTitle = document.getElementById('reconSubtTitle');
+            if (tipo === 'SUBIR') {
+                subTitle.innerHTML = `<span class="text-emerald-400">▲ ACELERANDO EL RITMO (AIR DRUMMING) ▲</span>`;
+                subTitle.className = "text-xs font-bold px-3 py-1 bg-emerald-950/40 border border-emerald-900/50 rounded-full text-emerald-400 mb-4";
+            } else {
+                subTitle.innerHTML = `<span class="text-red-400">▼ REDUCIENDO EL RITMO (AIR DRUMMING) ▼</span>`;
+                subTitle.className = "text-xs font-bold px-3 py-1 bg-red-950/40 border border-red-900/50 rounded-full text-red-400 mb-4";
+            }
+
+            const modal = document.getElementById('reconModal');
+            modal.classList.remove('hidden');
+            const cdText = document.getElementById('countdownText');
+            cdText.innerText = tiempoRestante;
+            
+            const progress = document.getElementById('countdownProgress');
+            progress.style.width = '100%';
+
+            // Cuenta atrás activa
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                tiempoRestante--;
+                cdText.innerText = tiempoRestante;
+                
+                const percentage = (tiempoRestante / 5) * 100;
+                progress.style.width = `${percentage}%`;
+
+                if (tiempoRestante <= 0) {
+                    cerrarReconModal();
+                }
+            }, 1000);
+
+            lucide.createIcons();
+        }
+
+        function cerrarReconModal() {
+            clearInterval(countdownInterval);
+            modalAbierto = false;
+            document.getElementById('reconModal').classList.add('hidden');
+        }
+
+        function procesar(accion) {
+            if (modalAbierto) return;
+
+            actualizarStats(accion);
+
+            // Feedback visual completo de destello de pantalla ambiental
+            if (accion === 'BUENA') flashAmbiental('green');
+            if (accion === 'MALA') flashAmbiental('red');
+            if (accion === 'AMBIGUA') flashAmbiental('orange');
+
+            const metaBuenas = limits.buenas.current;
+            const limiteAmbiguas = limits.ambiguas.current;
+            const seleccionMalasOriginal = limits.malas.current;
+
+            const alertText = document.getElementById('alertText');
+            const velocidadSugerida = document.getElementById('velocidadSugerida');
+
+            if (accion === 'BUENA') {
+                malas = 0;
+                // El colchón se restablece a lo seleccionado
+                limiteMalasActivo = seleccionMalasOriginal; 
+                buenas++;
+                
+                alertText.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 animate-bounce"></i> BUENA EJECUCIÓN`;
+                alertText.style.color = "var(--green)";
+                velocidadSugerida.innerHTML = `<i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-400"></i> Buen ritmo. Sigue así.`;
+
+                if (buenas >= metaBuenas) {
+                    alertText.innerHTML = `<i data-lucide="arrow-big-up-dash" class="w-5 h-5 text-emerald-400 animate-bounce"></i> ¡SUBE TEMPO EN SONGSTERR!`;
+                    
+                    buenas = 0;
+                    malas = 0;
+                    ambiguas = 0;
+                    // El nuevo tempo otorga mayor colchón adaptativo temporal (+2 sobre lo configurado)
+                    limiteMalasActivo = seleccionMalasOriginal + 2; 
+                    
+                    velocidadSugerida.innerHTML = `<i data-lucide="gauge" class="w-3.5 h-3.5 text-zinc-300"></i> Adapta tus dedos al nuevo tempo.`;
+                    abrirVueltaReconocimiento('SUBIR');
+                }
+            } 
+            else if (accion === 'MALA') {
+                buenas = 0;
+                malas++;
+                
+                alertText.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-red-500 animate-bounce"></i> INCORRECTO`;
+                alertText.style.color = "var(--red)";
+                velocidadSugerida.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-red-400"></i> Cuidado. Concéntrate en la precisión.`;
+
+                if (malas >= limiteMalasActivo) {
+                    alertText.innerHTML = `<i data-lucide="arrow-big-down-dash" class="w-5 h-5 text-red-400 animate-bounce"></i> ▼ BAJA TEMPO EN SONGSTERR ▼`;
+                    
+                    buenas = 0;
+                    malas = 0;
+                    ambiguas = 0;
+                    // Margen de adaptación inicial tras bajar el ritmo (+2 sobre lo configurado)
+                    limiteMalasActivo = seleccionMalasOriginal + 2; 
+                    
+                    velocidadSugerida.innerHTML = `<i data-lucide="trending-down" class="w-3.5 h-3.5 text-red-400"></i> Baja el tempo para consolidar técnica.`;
+                    abrirVueltaReconocimiento('BAJAR');
+                }
+            } 
+            else if (accion === 'AMBIGUA') {
+                ambiguas++;
+                
+                alertText.innerHTML = `<i data-lucide="help-circle" class="w-4 h-4 text-orange-500"></i> AMBIGUA`;
+                alertText.style.color = "var(--orange)";
+                
+                if (ambiguas >= limiteAmbiguas) {
+                    ambiguas = 0;
+                    procesar('MALA'); // Llegar al límite de ambiguas computa como fallo total
+                    return;
+                }
+            }
+
+            renderSemaforo();
+            lucide.createIcons();
+        }
+
+        function reiniciarSesion() {
+            buenas = 0;
+            malas = 0;
+            ambiguas = 0;
+            
+            initDynamicLimits();
+
+            totalBuenasSesion = 0;
+            totalMalasSesion = 0;
+            totalAccionesSesion = 0;
+            logActividad = [];
+            
+            const alertText = document.getElementById('alertText');
+            alertText.innerHTML = "SISTEMA REINICIADO";
+            alertText.style.color = "#8e8e93";
+            
+            document.getElementById('statBuenas').innerText = '0';
+            document.getElementById('statMalas').innerText = '0';
+            document.getElementById('statTotal').innerText = '0';
+            document.getElementById('velocidadSugerida').innerHTML = `<i data-lucide="circle-dot" class="w-3.5 h-3.5 text-zinc-500"></i> Mantener ritmo estable`;
+            document.getElementById('historialLog').innerHTML = `<span class="text-[10px] text-zinc-600 italic">Sin actividad registrada</span>`;
+            
+            cerrarReconModal();
+            renderSemaforo();
+            lucide.createIcons();
+        }
+
+        // Eventos de teclado físicos
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            
+            if (modalAbierto) {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    cerrarReconModal();
+                }
+                return;
+            }
+
+            if (key === 'a') procesar('MALA');
+            if (key === 's') procesar('AMBIGUA');
+            if (key === 'd') procesar('BUENA');
+        });
+
+        // Inicialización al cargar la página
+        window.onload = function() {
+            actualizarUIValores();
+            initDynamicLimits();
+        }
+    </script>
+</body>
+</html>
